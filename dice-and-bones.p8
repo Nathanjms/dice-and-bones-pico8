@@ -1,0 +1,264 @@
+pico-8 cartridge // http://www.pico-8.com
+version 43
+__lua__
+-------------------------------------
+-- game state
+-------------------------------------
+state = "menu" -- can be: menu, player_select, char_select game
+
+player_count = 1
+max_players = 4
+
+-- hand sprite index
+hand_sprite = 0
+
+hand = { x = 0, y = 0 }
+selected = 1
+
+-- dice shared for now
+dice = {
+    { x = 40, y = 40, value = 1 },
+    { x = 60, y = 40, value = 1 },
+    { x = 80, y = 40, value = 1 }
+}
+
+-- players (index 1 = human)
+players = {}
+current_player = 1
+
+characters = {
+    { name = "warrior", sprite = 16 },
+    { name = "mage", sprite = 18 },
+    { name = "rogue", sprite = 20 },
+    { name = "cleric", sprite = 22 }
+}
+-------------------------------------
+function init_players()
+    players = {}
+    characterCounter = 0
+    for i = 1, player_count do
+        add(players, { ai = false, score = 0, character = characters[characterCounter] })
+        characterCounter += 1
+    end
+    -- fill remaining as ai
+    for i = player_count + 1, max_players do
+        add(players, { ai = true, score = 0, character = characters[characterCounter] })
+        characterCounter += 1
+    end
+end
+-------------------------------------
+
+function _init()
+    update_hand_pos()
+end
+
+-------------------------------------
+-- helpers
+-------------------------------------
+
+function update_hand_pos()
+    local d = dice[selected]
+    hand.x = d.x - 10
+    hand.y = d.y
+end
+
+function roll_dice()
+    for d in all(dice) do
+        d.value = flr(rnd(6)) + 1
+    end
+end
+
+function total_value()
+    local t = 0
+    for d in all(dice) do
+        t += d.value
+    end
+    return t
+end
+
+function ai_take_turn()
+    -- super simple ai: roll once
+    roll_dice()
+end
+
+-------------------------------------
+-- state: main menu
+-------------------------------------
+function update_menu()
+    if btnp(➡️) then
+        state = "player_select"
+    end
+end
+
+function draw_menu()
+    cls(1)
+    print("dice and bones", 30, 40, 7)
+    print("press ➡️ to start", 25, 60, 11)
+end
+
+-------------------------------------
+-- state: player selection
+-------------------------------------
+function update_player_select()
+    if btnp(⬅️) then
+        player_count = max(1, player_count - 1)
+    end
+    if btnp(➡️) then
+        player_count = min(max_players, player_count + 1)
+    end
+
+    if btnp(❎) or btnp(🅾️) then
+        init_players()
+        state = "char_select"
+    end
+end
+
+function draw_player_select()
+    cls(1)
+    print("select players", 28, 20, 7)
+    print("use left/right", 30, 32, 6)
+    print("players: " .. player_count, 40, 50, 10)
+    print("press 🅾️/❎ to continue", 16, 90, 11)
+end
+
+-------------------------------------
+-- state: char select
+-------------------------------------
+selected_player = 1
+chosen_character = 1
+function update_char_select()
+    if btnp(⬅️) then
+        chosen_character = max(1, chosen_character - 1)
+    end
+    if btnp(➡️) then
+        chosen_character = min(#characters, chosen_character + 1)
+    end
+
+    if btnp(❎) or btnp(🅾️) then
+        init_players()
+        state = "game"
+    end
+end
+
+function draw_char_select()
+    cls(1)
+    print("select character for player " .. selected_player, 20, 20, 7)
+    print("use left/right", 30, 32, 6)
+    -- display character sprite
+    local char = characters[chosen_character]
+    spr(char.sprite, 60, 50, 2, 2)
+    print(char.name, 60, 70, 10)
+    print("press 🅾️/❎ to continue", 16, 90)
+end
+
+-------------------------------------
+-- state: actual game
+-------------------------------------
+function update_game()
+    local p = players[current_player]
+
+    if p.ai then
+        ai_take_turn()
+        -- scoring for demo
+        p.score += total_value()
+        next_player()
+        return
+    end
+
+    -- human player control
+    if btnp(0) then
+        selected = max(1, selected - 1) update_hand_pos()
+    end
+    if btnp(1) then
+        selected = min(#dice, selected + 1) update_hand_pos()
+    end
+
+    -- roll
+    if btnp(4) then
+        roll_dice()
+        p.score += total_value()
+        next_player()
+    end
+end
+
+function next_player()
+    current_player += 1
+    if current_player > max_players then
+        current_player = 1
+    end
+end
+
+function draw_game()
+    cls(1)
+
+    -- dice
+    for d in all(dice) do
+        rectfill(d.x, d.y, d.x + 8, d.y + 8, 7)
+        print(d.value, d.x + 2, d.y + 2, 0)
+    end
+
+    -- hand
+    spr(hand_sprite, hand.x, hand.y)
+
+    -- scores
+    for i, p in ipairs(players) do
+        local label = p.ai and "ai" or "p" .. i
+        print(label .. ":" .. p.score, 5, 5 + (i - 1) * 7, p.ai and 8 or 11)
+    end
+
+    print("current: " .. current_player, 90, 5, 10)
+    print("❎ roll", 45, 110, 7)
+end
+
+-------------------------------------
+-- main update + draw
+-------------------------------------
+function _update()
+    if state == "menu" then
+        update_menu()
+    elseif state == "player_select" then
+        update_player_select()
+    elseif state == "char_select" then
+        update_char_select()
+    elseif state == "game" then
+        update_game()
+    end
+end
+
+function _draw()
+    if state == "menu" then
+        draw_menu()
+    elseif state == "player_select" then
+        draw_player_select()
+    elseif state == "char_select" then
+        draw_char_select()
+    elseif state == "game" then
+        draw_game()
+    end
+end
+
+__gfx__
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00700700000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00077000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00077000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00700700000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0000000000000000000000cc00000000000040000070700000aaa000060000000000000000000000000000000000000000000000000000000000000000000000
+0000000000440000000000cc00000000000046000747470000000006666600000000000000000000000000000000000000000000000000000000000000000000
+00000000044660000000007c00000000000446000040400000000066666660aa0000000000000000000000000000000000000000000000000000000000000000
+000000004466660000000c77000000000044060005555500a066006666666a000000000000000000000000000000000000000000000000000000000000000000
+00000004406d666000000cc7000000000040060005555500a0666066666660000000000000000000000000000000000000000000000000000000000000000000
+00000044000dd66600000ccc0000000000400600055550000a666066666660000000000000000000000000000000000000000000000000000000000000000000
+00000440000d666000000ccc000000000040060005555000006d6066666660000000000000000000000000000000000000000000000000000000000000000000
+000044000000666000000cccc00000000040066000555000006d6666666660aa0000000000000000000000000000000000000000000000000000000000000000
+00004000000666000000c777c00000000040006000555000006d6666666660000000000000000000000000000000000000000000000000000000000000000000
+00040000000000000000c77cc00000000040006000555500006dd666666660000000000000000000000000000000000000000000000000000000000000000000
+0044000000000000000ccc77c000000000400060005555000066dd66666660000000000000000000000000000000000000000000000000000000000000000000
+0440000000000000000ccccccccccc000040066000555500a0006666666660000000000000000000000000000000000000000000000000000000000000000000
+440000000000000000cccccccc000ccc004006000055500000006666666660aa0000000000000000000000000000000000000000000000000000000000000000
+0000000000000000ccc0000000000000004446000055500000a006666666600a0000000000000000000000000000000000000000000000000000000000000000
+000000000000000000000000000000000000460000000000aaa00666666600000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000040000000000000000666660000000000000000000000000000000000000000000000000000000000000000000000
