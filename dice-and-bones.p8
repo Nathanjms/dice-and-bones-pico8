@@ -27,7 +27,7 @@ players = {}
 current_player = 1
 char_select_config = {
     selected_player = 1,
-    chosen_character = 1
+    chosen_character_idx = 1
 }
 
 characters = {
@@ -39,7 +39,7 @@ characters = {
 -------------------------------------
 function init_players()
     players = {}
-    characterCounter = 0
+    characterCounter = 1
     for i = 1, player_count do
         add(players, { ai = false, score = 0, character = characters[characterCounter] })
         characterCounter += 1
@@ -85,6 +85,25 @@ function ai_take_turn()
     roll_dice()
 end
 
+function hcenter(s)
+    -- screen center minus the
+    -- string length times the
+    -- pixels in a char's width,
+    -- cut in half
+    return 64 - #s * 2
+end
+
+function vcenter(s)
+    -- screen center minus the
+    -- string height in pixels,
+    -- cut in half
+    return 61
+end
+
+function print_center(s, y, color)
+    print(s, hcenter(s), y, color)
+end
+
 -------------------------------------
 -- state: main menu
 -------------------------------------
@@ -95,9 +114,9 @@ function update_menu()
 end
 
 function draw_menu()
-    cls(1)
-    print("dice and bones", 30, 40, 7)
-    print("press ➡️ to start", 25, 60, 11)
+    cls(5)
+    print_center("dice and bones", 40, 7)
+    print_center("press ➡️ to start", 60, 11)
 end
 
 -------------------------------------
@@ -118,11 +137,11 @@ function update_player_select()
 end
 
 function draw_player_select()
-    cls(1)
-    print("select players", 28, 20, 7)
-    print("use ⬆️/⬇️", 30, 32, 6)
-    print("players: " .. player_count, 40, 50, 10)
-    print("press ➡️ to continue", 16, 90, 11)
+    cls(5)
+    print_center("select players", 20, 7)
+    print_center("use ⬆️/⬇️", 32, 6)
+    print_center("players: " .. player_count, 50, 10)
+    print_center("press ➡️ to continue", 90, 11)
 end
 
 -------------------------------------
@@ -130,18 +149,17 @@ end
 -------------------------------------
 function update_char_select()
     if btnp(⬇️) then
-        char_select_config.chosen_character = max(1, char_select_config.chosen_character - 1)
+        char_select_config.chosen_character_idx = max(1, char_select_config.chosen_character_idx - 1)
     end
     if btnp(⬆️) then
-        char_select_config.chosen_character = min(#characters, char_select_config.chosen_character + 1)
+        char_select_config.chosen_character_idx = min(#characters, char_select_config.chosen_character_idx + 1)
     end
+    players[char_select_config.selected_player].character = characters[char_select_config.chosen_character_idx]
 
     if btnp(➡️) then
-        players[char_select_config.selected_player].character = characters[char_select_config.chosen_character]
         if char_select_config.selected_player < player_count then
             char_select_config.selected_player += 1
-        end
-        if char_select_config.selected_player >= player_count then
+        elseif char_select_config.selected_player >= player_count then
             state = "game"
         end
     end
@@ -154,19 +172,21 @@ function update_char_select()
 end
 
 function draw_char_select()
-    cls(1)
+    cls(5)
     print("select character for player " .. char_select_config.selected_player, 20, 20, 7)
     print("use ⬆️/⬇️", 30, 32, 6)
     -- display character sprites for each player in a row
-    interval = 20
-    x = 60
+    interval = 28
+    x = 16
     for i = 1, player_count do
         local char = players[i].character
         if i == char_select_config.selected_player then
-            rectfill(x, 50, x + 2, 52, 7)
+            rectfill(x + 8, 44, x + 10, 46, 7)
         end
-        spr(char.sprite, x, 50, 2, 2, 0, 0, 1, 1)
-        print(char.name, x, 70, 10)
+        if char then
+            spr(char.sprite, x, 50, 2, 2, 0, 0, 1, 1)
+            print(char.name, x, 70, 10)
+        end
         x += interval
     end
     if char_select_config.selected_player < player_count then
@@ -214,7 +234,7 @@ function next_player()
 end
 
 function draw_game()
-    cls(1)
+    cls(5)
 
     -- dice
     for d in all(dice) do
