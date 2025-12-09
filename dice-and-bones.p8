@@ -6,7 +6,7 @@ __lua__
 -------------------------------------
 state = "menu" -- can be: menu, player_select, char_select game
 
-player_count = 1
+player_count = 2
 max_players = 4
 
 -- hand sprite index
@@ -25,6 +25,10 @@ dice = {
 -- players (index 1 = human)
 players = {}
 current_player = 1
+char_select_config = {
+    selected_player = 1,
+    chosen_character = 1
+}
 
 characters = {
     { name = "warrior", sprite = 16 },
@@ -100,14 +104,14 @@ end
 -- state: player selection
 -------------------------------------
 function update_player_select()
-    if btnp(⬅️) then
-        player_count = max(1, player_count - 1)
+    if btnp(⬇️) then
+        player_count = max(2, player_count - 1) -- minimum 2 players
     end
-    if btnp(➡️) then
-        player_count = min(max_players, player_count + 1)
+    if btnp(⬆️) then
+        player_count = min(max_players, player_count + 1) -- maximum 4 players
     end
 
-    if btnp(❎) or btnp(🅾️) then
+    if btnp(➡️) then
         init_players()
         state = "char_select"
     end
@@ -116,39 +120,60 @@ end
 function draw_player_select()
     cls(1)
     print("select players", 28, 20, 7)
-    print("use left/right", 30, 32, 6)
+    print("use ⬆️/⬇️", 30, 32, 6)
     print("players: " .. player_count, 40, 50, 10)
-    print("press 🅾️/❎ to continue", 16, 90, 11)
+    print("press ➡️ to continue", 16, 90, 11)
 end
 
 -------------------------------------
 -- state: char select
 -------------------------------------
-selected_player = 1
-chosen_character = 1
 function update_char_select()
-    if btnp(⬅️) then
-        chosen_character = max(1, chosen_character - 1)
+    if btnp(⬇️) then
+        char_select_config.chosen_character = max(1, char_select_config.chosen_character - 1)
     end
-    if btnp(➡️) then
-        chosen_character = min(#characters, chosen_character + 1)
+    if btnp(⬆️) then
+        char_select_config.chosen_character = min(#characters, char_select_config.chosen_character + 1)
     end
 
-    if btnp(❎) or btnp(🅾️) then
-        init_players()
-        state = "game"
+    if btnp(➡️) then
+        players[char_select_config.selected_player].character = characters[char_select_config.chosen_character]
+        if char_select_config.selected_player < player_count then
+            char_select_config.selected_player += 1
+        end
+        if char_select_config.selected_player >= player_count then
+            state = "game"
+        end
+    end
+
+    if btnp(⬅️) then
+        if char_select_config.selected_player > 1 then
+            char_select_config.selected_player -= 1
+        end
     end
 end
 
 function draw_char_select()
     cls(1)
-    print("select character for player " .. selected_player, 20, 20, 7)
-    print("use left/right", 30, 32, 6)
-    -- display character sprite
-    local char = characters[chosen_character]
-    spr(char.sprite, 60, 50, 2, 2)
-    print(char.name, 60, 70, 10)
-    print("press 🅾️/❎ to continue", 16, 90)
+    print("select character for player " .. char_select_config.selected_player, 20, 20, 7)
+    print("use ⬆️/⬇️", 30, 32, 6)
+    -- display character sprites for each player in a row
+    interval = 20
+    x = 60
+    for i = 1, player_count do
+        local char = players[i].character
+        if i == char_select_config.selected_player then
+            rectfill(x, 50, x + 2, 52, 7)
+        end
+        spr(char.sprite, x, 50, 2, 2, 0, 0, 1, 1)
+        print(char.name, x, 70, 10)
+        x += interval
+    end
+    if char_select_config.selected_player < player_count then
+        print("press ➡️ to continue", 16, 90, 11)
+    else
+        print("press ➡️ to start", 16, 90, 11)
+    end
 end
 
 -------------------------------------
